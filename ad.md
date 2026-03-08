@@ -20,140 +20,78 @@
 
 ### What You See On Screen:
 
-```
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ HEADER - Logo, Menu Toggle, User Profile   ┃
-┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
-┃ SIDEBAR  ║ RESIZER ║ MAIN CONTENT AREA      ┃
-┃          ║   ███   ║                         ┃
-┃ Features ║         ║ Shows content from      ┃
-┃ Selector ║         ║ selected feature       ┃
-┃          ║         ║ (router-outlet)        ┃
-┃ 📧 INBOX ║         ║                         ┃
-┃ 📤 OUTBOX║ drag me ║ Display current page    ┃
-┃ 🖥️ CONSOLE (if exists)                      ┃
-┃          ║         ║                         ┃
-┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
-┃ (Hidden: MENU - shows inside feature)       ┃
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+```mermaid
+graph LR
+    A["📱 SCREEN"]
+    A --> B["🔝 HEADER<br/>Logo, Menu Toggle<br/>User Profile"]
+    A --> C["📁 SIDEBAR<br/>Feature Selector<br/>📧 Inbox<br/>📤 Outbox<br/>🖥️ Console"]
+    A --> D["🎯 MENU<br/>Feature Data<br/>Changes per feature<br/>Mailboxes OR<br/>Outbox items"]
+    A --> E["📄 MAIN<br/>Content Area<br/>router-outlet<br/>Shows current page"]
+    A --> F["↕️ RESIZER<br/>Drag to resize"]
 ```
 
-### Layout Structure:
+### Layout Stack:
 
-```
-AppShell (main layout) wraps everything
-├── Header (top bar)
-├── Sidebar (left - FEATURE BUTTONS)
-├── Resizer (drag bar between sidebar and main)
-├── Menu (inside feature - CHANGES per feature)
-└── Main content area (router-outlet)
-```
-
-### Key Files:
-
-```
-core/layout/
-├── app-shell/           ← Wraps everything
-├── header/              ← Top bar
-├── sidebar/             ← Feature selector buttons
-│   └── menu-state.service.ts ← Tracks: which feature is active
-├── menu/                ← Shows when INSIDE a feature
-│   └── menu.component.html  ← Renders MailboxContainer/OutboxContainer
-└── app-resizer/         ← Drag to resize
+```mermaid
+graph TD
+    A["AppShell (Main Container)"]
+    A --> B["Header"]
+    A --> C["Sidebar (Feature Buttons)"]
+    A --> D["Menu (Feature Data)"]
+    A --> E["Resizer Bar"]
+    A --> F["Main Content"]
+    
+    C --> C1["📧 Click = Set active feature"]
+    D --> D1["🎯 Shows MailboxContainer OR OutboxContainer"]
+    F --> F1["📄 Shows current page"]
 ```
 
 ---
 
 ## 2. Feature Workflow
 
-### User Selects a Feature:
+### User Clicks Feature in Sidebar:
 
-```
-User clicks "INBOX" in SIDEBAR
-        ▼
-MenuStateService.setActiveModule('inbox')
-        ▼
-Sidebar passes feature to Router
-        ▼
-URL changes to /mailboxes
-        ▼
-Router loads MailboxPageComponent
-        ▼
-MailboxPageComponent imports MailboxContainer
-        ▼
-Menu switches: shows MailboxContainer INSIDE menu area
-        ▼
-MailboxContainer displays mailbox list
-        ▼
-USER SEES: Sidebar + Menu (with mailbxoes) + Main content
+```mermaid
+sequenceDiagram
+    participant User
+    participant Sidebar
+    participant MenuStateService
+    participant MenuComponent
+    participant MainContent
+    
+    User->>Sidebar: Click "INBOX"
+    Sidebar->>MenuStateService: setActiveModule('inbox')
+    MenuStateService->>MenuComponent: activeModuleId.set('inbox')
+    MenuComponent->>MenuComponent: @switch changes
+    MenuComponent->>Sidebar: Show MailboxContainer
+    Sidebar->>MainContent: MailboxPageComponent renders
+    MainContent->>User: 👀 User sees mailboxes + content
 ```
 
-### Visual Workflow:
+### Feature Selection Flow:
 
-```
-STEP 1: Click feature in sidebar
-┌─────────────────────────────┐
-│ 📧 INBOX  ← Click here      │
-│ 📤 OUTBOX                   │
-│ 🖥️ CONSOLE                  │
-└─────────────────────────────┘
-
-STEP 2: Menu switches to show feature data
-┌──────────────────────────────────────┐
-│ Menu changes now shows:              │
-│                                      │
-│ [Inbox folder 1]                     │
-│ [Inbox folder 2]                     │
-│ [All Mail]                           │
-│                                      │
-│ (This is MailboxContainer inside)    │
-└──────────────────────────────────────┘
-
-STEP 3: Main content shows when you select item
-┌──────────────────────────────────────┐
-│ Content area:                        │
-│                                      │
-│ Subject: "Meeting today"             │
-│ From: "John Doe"                     │
-│ ...                                  │
-│                                      │
-│ (This is MailboxPageComponent)       │
-└──────────────────────────────────────┘
+```mermaid
+graph LR
+    A["👆 User Click"] -->|Feature Button| B["🔔 MenuStateService"]
+    B -->|activeModuleId changes| C["🎛️ Menu Component"]
+    C -->|@switch case| D["📮 MailboxContainer<br/>OR<br/>📤 OutboxContainer<br/>OR<br/>🖥️ ConsoleContainer"]
+    D -->|renders| E["📋 Feature List<br/>Shows data"]
 ```
 
-### MenuStateService Controls:
+### Menu @switch Logic:
 
-```
-MenuStateService (global state)
-├── activeModuleId = signal('inbox')     ← Which feature selected
-├── isOpen = signal(true)                ← Menu open/closed
-├── isCollapsed = signal(false)          ← Menu collapsed/expanded
-└── width = computed(...)                ← Menu width
-
-When activeModuleId changes:
-  ✓ Menu component @switch changes
-  ✓ Shows MailboxContainer OR OutboxContainer OR ConsoleContainer
-```
-
-### Menu Component @switch:
-
-```
-menu.component.html:
-
-@switch (activeModuleId()) {
-  @case ('inbox') {
-    <app-mailbox-container></app-mailbox-container>
-  }
-  @case ('outbox') {
-    <app-outbox-container></app-outbox-container>
-  }
-  @case ('console') {
-    <app-console-container></app-console-container>
-  }
-  @default {
-    <app-mailbox-container></app-mailbox-container>  ← Default
-  }
-}
+```mermaid
+graph TD
+    A["activeModuleId Signal"]
+    A -->|'inbox'| B["Show MailboxContainer"]
+    A -->|'outbox'| C["Show OutboxContainer"]
+    A -->|'console'| D["Show ConsoleContainer"]
+    A -->|default| E["Show MailboxContainer"]
+    
+    B --> F["🎯 Menu displays<br/>mailbox items"]
+    C --> G["🎯 Menu displays<br/>outbox items"]
+    D --> H["🎯 Menu displays<br/>console sections"]
 ```
 
 ---
@@ -162,285 +100,306 @@ menu.component.html:
 
 ### Complete User Action Flow:
 
+```mermaid
+sequenceDiagram
+    actor User
+    participant Component as MailboxListComponent
+    participant Container as MailboxContainer
+    participant Service as MailboxService
+    participant API as MailboxApiHttpService
+    participant Backend as Backend API
+    
+    User->>Component: Click item
+    Component->>Component: selectMailbox.emit(id)
+    Component->>Container: (selectMailbox)="onSelect($event)"
+    Container->>Container: selectedId.set(123)
+    Container->>Service: getMailboxById(123)
+    Service->>API: Call HTTP service
+    API->>Backend: GET /api/mailboxes/123
+    Backend->>API: Response data
+    API->>Service: toSignal(Observable)
+    Service->>Container: Signal with data
+    Container->>Component: [items]="data()"
+    Component->>User: 👀 Shows content
 ```
-1️⃣ USER CLICKS IN MENU
-   "Select Mailbox #123"
-        ▼
-2️⃣ COMPONENT EMITS EVENT
-   MailboxListComponent.selectMailbox.emit(123)
-        ▼
-3️⃣ CONTAINER CATCHES EVENT
-   MailboxContainer.onSelectMailbox(123)
-   └─ Sets: selectedId.set(123)
-   └─ Navigates to /mailboxes/123
-        ▼
-4️⃣ SERVICE LOADS DATA
-   MailboxService.getMailboxById(123)
-        ▼
-5️⃣ API LAYER MAKES REQUEST
-   GET /api/mailboxes/123
-        ▼
-6️⃣ HTTP INTERCEPTORS ADD HEADERS
-   + Authorization: "Bearer token..."
-   + Tenant-ID: "tenant-123"
-   + Accept-Language: "en"
-        ▼
-7️⃣ BACKEND RESPONDS
-   { id: 123, label: "Inbox", items: [...] }
-        ▼
-8️⃣ SERVICE TRANSFORMS DATA
-   map(response => response.data)
-   pipe(shareReplay(1))
-        ▼
-9️⃣ CONTAINER CONVERTS TO SIGNAL
-   readonly mailbox = toSignal(service$, { initialValue: null })
-        ▼
-🔟 TEMPLATE SHOWS DATA
-   {{ mailbox().label }} → "Inbox"
-        ▼
-👀 USER SEES RESULT
+
+### Step by Step:
+
+```mermaid
+graph LR
+    A["1️⃣ User<br/>Clicks"] --> B["2️⃣ Component<br/>Emits"]
+    B --> C["3️⃣ Container<br/>Catches"]
+    C --> D["4️⃣ Service<br/>Loads"]
+    D --> E["5️⃣ API<br/>Requests"]
+    E --> F["6️⃣ Interceptors<br/>Add Headers"]
+    F --> G["7️⃣ Backend<br/>Responds"]
+    G --> H["8️⃣ Transform<br/>Data"]
+    H --> I["9️⃣ toSignal<br/>Convert"]
+    I --> J["🔟 Template<br/>Renders"]
+    J --> K["👀 User<br/>Sees"]
 ```
 
 ---
 
 ## 4. Feature Folder Structure
 
-### Every Feature Looks Like This:
+### Tree Structure:
 
-```
-features/
-└── mailboxes/
-    ├── mailboxes.routes.ts         ← Routes
-    │
-    ├── api/
-    │   ├── mailbox-api.ts          ← Interface
-    │   ├── mailbox-api.token.ts    ← Token
-    │   └── mailbox-api.http.service.ts  ← HTTP
-    │
-    ├── services/
-    │   └── mailbox.service.ts      ← Business logic
-    │
-    ├── models/
-    │   └── mailbox.model.ts        ← Types
-    │
-    ├── pages/
-    │   └── mailbox-page/           ← Route entry point
-    │       ├── .ts
-    │       ├── .html
-    │       └── .scss
-    │
-    ├── containers/
-    │   └── mailbox/                ← Smart component (state)
-    │       ├── .ts
-    │       ├── .html
-    │       └── .scss
-    │
-    ├── components/
-    │   └── mailbox-list/           ← Dumb (display only)
-    │       ├── .ts
-    │       ├── .html
-    │       └── .scss
-    │
-    └── mocks/
-        └── mailboxes.mock.ts       ← Test data
+```mermaid
+graph TD
+    A["features/mailboxes/"]
+    A --> B["mailboxes.routes.ts"]
+    A --> C["api/"]
+    C --> C1["mailbox-api.ts"]
+    C --> C2["mailbox-api.token.ts"]
+    C --> C3["mailbox-api.http.service.ts"]
+    A --> D["services/"]
+    D --> D1["mailbox.service.ts"]
+    A --> E["models/"]
+    E --> E1["mailbox.model.ts"]
+    A --> F["pages/"]
+    F --> F1["mailbox-page/"]
+    A --> G["containers/"]
+    G --> G1["mailbox/"]
+    A --> H["components/"]
+    H --> H1["mailbox-list/"]
+    A --> I["mocks/"]
+    I --> I1["mailboxes.mock.ts"]
 ```
 
 ### Component Types:
 
-```
-PAGE
-├─ Entry point (route loads this)
-├─ Contains a Container
-└─ Usually simple wrapper
-
-CONTAINER (⭐ The important one)
-├─ Manages state (Signals)
-├─ Calls services
-├─ Passes data to components
-├─ Handles user actions
-└─ Converts Observable → Signal
-
-COMPONENT
-├─ Just displays stuff
-├─ Takes @Input()
-├─ Emits @Output()
-├─ No business logic
-└─ No service calls
+```mermaid
+graph TD
+    A["Component Types"]
+    A --> B["PAGE<br/>mailbox-page.component"]
+    B --> B1["✓ Route loads this"]
+    B --> B2["✓ Imports Container"]
+    B --> B3["✓ Usually wrapper"]
+    
+    A --> C["CONTAINER<br/>mailbox.container<br/>⭐️"]
+    C --> C1["✓ Manages state"]
+    C --> C2["✓ Calls services"]
+    C --> C3["✓ Passes to components"]
+    C --> C4["✓ Handles events"]
+    
+    A --> D["COMPONENT<br/>mailbox-list.component"]
+    D --> D1["✓ Displays data"]
+    D --> D2["✓ Takes @Input"]
+    D --> D3["✓ Emits @Output"]
+    D --> D4["✓ No logic"]
 ```
 
 ---
 
 ## 5. Build New Feature
 
-### 11 Steps to Add "Console" Feature:
+### 11 Steps Process:
 
-```
-1️⃣ Create folder structure
-   mkdir -p src/app/features/console/{api,services,models,mocks,pages,containers,components/console-list}
-
-2️⃣ Define data model (console.model.ts)
-   interface ConsoleSection { id: string; label: string; }
-
-3️⃣ Create API interface (console-api.ts)
-   interface ConsoleApi { getSections(): Observable<ConsoleSection[]>; }
-
-4️⃣ Create API token (console-api.token.ts)
-   export const CONSOLE_API = new InjectionToken<ConsoleApi>('CONSOLE_API');
-
-5️⃣ Implement HTTP service (console-api.http.service.ts)
-   @Injectable() export class ConsoleApiHttpService implements ConsoleApi { ... }
-
-6️⃣ Create feature service (console.service.ts)
-   @Injectable() export class ConsoleService { ... }
-
-7️⃣ Create container (console.container.ts)
-   ✓ Manage state
-   ✓ Convert Observable to Signal
-   ✓ Handle interactions
-
-8️⃣ Create list component (console-list.component.ts)
-   ✓ Display data
-   ✓ Emit events
-
-9️⃣ Create page (console-page.component.ts)
-   ✓ Wrapper for route
-
-10️⃣ Register routes (console.routes.ts + app.routes.ts)
-    { path: 'console', children: CONSOLE_ROUTES }
-
-11️⃣ Register in DI (app.config.ts)
-    { provide: CONSOLE_API, useClass: ConsoleApiHttpService }
+```mermaid
+graph LR
+    A["1. Folders"] --> B["2. Model"]
+    B --> C["3. API Interface"]
+    C --> D["4. API Token"]
+    D --> E["5. HTTP Service"]
+    E --> F["6. Feature Service"]
+    F --> G["7. Container"]
+    G --> H["8. Component"]
+    H --> I["9. Page"]
+    I --> J["10. Routes"]
+    J --> K["11. DI Register"]
+    
+    K --> L["✅ Feature Ready"]
 ```
 
-### Result:
-```
-✅ Feature works
-✅ Accessible at /console
-✅ Appears in sidebar
-✅ Menu shows console data when selected
+### Building Overview:
+
+```mermaid
+graph TD
+    A["Add Console Feature"]
+    A --> B["Create Files"]
+    B --> C["console.model.ts"]
+    B --> D["console-api.ts"]
+    B --> E["console.service.ts"]
+    B --> F["console.container.ts"]
+    B --> G["console-list.component.ts"]
+    
+    A --> H["Wire Up"]
+    H --> I["console.routes.ts"]
+    H --> J["app.routes.ts"]
+    H --> K["app.config.ts"]
+    
+    C --> L["Result"]
+    G --> L
+    K --> L
+    L --> M["✅ /console works<br/>✅ Appears in sidebar<br/>✅ Shows in menu"]
 ```
 
 ---
 
 ## 6. Fix a Bug
 
-### Troubleshooting Guide:
+### Troubleshooting Flowchart:
 
+```mermaid
+graph TD
+    A["❌ Something broken"]
+    
+    A --> B{"What's wrong?"}
+    
+    B -->|"List not showing"| C["💡 Check component"]
+    C --> C1["Component.html renders?"]
+    C1 -->|No| C2["Fix template"]
+    C1 -->|Yes| C3["Check service"]
+    
+    B -->|"Data not loading"| D["💡 Check service"]
+    D --> D1["Service.ts returns Observable?"]
+    D1 -->|No| D2["Fix service"]
+    D1 -->|Yes| D3["Check API"]
+    
+    B -->|"Button not working"| E["💡 Check container"]
+    E --> E1["Container catches event?"]
+    E1 -->|No| E2["Fix handler"]
+    E1 -->|Yes| E3["Check navigation"]
+    
+    B -->|"Styles broken"| F["💡 Check SCSS"]
+    F --> F1["Selector matches?"]
+    F1 -->|No| F2["Fix selector"]
+    F1 -->|Yes| F3["Check specificity"]
+    
+    C2 --> G["✅ Fixed"]
+    D2 --> G
+    E2 --> G
+    F2 --> G
 ```
-❓ List not showing?
-   └─ Check: component HTML renders list → service returns data → API working
 
-❓ Data not loading?
-   └─ Check Network tab → check service Observable → check container converts to Signal
+### Debug Checklist:
 
-❓ Button not working?
-   └─ Check: component emits → container catches → handler exists
-
-❓ Styles not applied?
-   └─ Check selector matches → check CSS specificity → check ViewEncapsulation
-
-❓ Route not working?
-   └─ Check routes registered → check URL correct → check component imported
-```
-
-### Quick Fix Steps:
-
-```
-1. Find the file
-   - Display issue? → Component .html/.scss
-   - Data issue? → Service or API
-   - Logic issue? → Container .ts
-
-2. Search for clues
-   grep -r "what-you're-looking-for" src/app/features/
-
-3. Test locally
-   ng serve
-   
-4. Check browser console
-   F12 → Console tab for errors
-   
-5. Check Network tab
-   F12 → Network → Make request → See response
-
-6. Fix and commit
-   git add .
-   git commit -m "fix: describe what you fixed"
+```mermaid
+graph LR
+    A["Find Problem"] --> B["Search codebase"]
+    B --> C["Test locally"]
+    C --> D["Check console"]
+    D --> E["Check Network"]
+    E --> F["Fix"]
+    F --> G["Commit"]
+    G --> H["✅ Done"]
 ```
 
 ---
 
 ## 7. Common Commands
 
-### Serve & Build:
-```bash
-ng serve              # Local dev
-ng build --prod       # Production
-```
-
-### Testing:
-```bash
-npx eslint src/**/*.{ts,html}        # Run linter
-npx eslint ... -f html -o report.html # Generate report
-```
-
 ### Git Workflow:
-```bash
-git checkout -b feature/my-feature   # Create branch
-git add .                            # Stage changes
-git commit -m "feat: description"    # Commit
-git push origin feature/my-feature   # Push
-# Create PR on GitHub
+
+```mermaid
+graph LR
+    A["branch"] --> B["add"]
+    B --> C["commit"]
+    C --> D["push"]
+    D --> E["PR"]
+    
+    A -->|git checkout -b| A1["feature/name"]
+    B -->|git add .| B1["Stage files"]
+    C -->|git commit -m| C1["'feat: description'"]
+    D -->|git push| D1["origin feature/name"]
+    E -->|Create on| E1["GitHub"]
 ```
 
-### Generate Files:
-```bash
-ng g c features/mailboxes/components/my-component
-ng g s features/mailboxes/services/my-service
+### Build & Test:
+
+```mermaid
+graph TD
+    A["Commands"]
+    A --> B["Serve"]
+    B --> B1["ng serve"]
+    B1 -->|Visit| B2["localhost:4200"]
+    
+    A --> C["Lint"]
+    C --> C1["npx eslint src/**/*.ts"]
+    
+    A --> D["Build"]
+    D --> D1["ng build --prod"]
+    
+    A --> E["Generate"]
+    E --> E1["ng g c components/name"]
+    E --> E2["ng g s services/name"]
 ```
 
 ---
 
 ## Quick Tips
 
-### ⚠️ Always Call Signals with ()
+### Always Call Signals with ():
 
-```
-❌ [items]="mailboxes"
-✅ [items]="mailboxes()"
+```mermaid
+graph TD
+    A["Signal Usage"]
+    A --> B["❌ WRONG"]
+    B --> B1["[items]='mailboxes'"]
+    B --> B2["Passes Signal object"]
+    B --> B3["Type error"]
+    
+    A --> C["✅ RIGHT"]
+    C --> C1["[items]='mailboxes()'"]
+    C --> C2["Calls Signal function"]
+    C --> C3["Gets value"]
 ```
 
-### ⚠️ Injectable Pattern
+### Signal vs Observable:
 
-```
-@Injectable({ providedIn: 'root' })  ← Singleton
-export class MyService { }
+```mermaid
+graph TD
+    A["State Management"]
+    
+    A --> B["Observable"]
+    B --> B1["API calls"]
+    B --> B2["Service returns"]
+    B --> B3["readonly mailboxes$ = ..."]
+    
+    A --> C["Signal"]
+    C --> C1["Component state"]
+    C --> C2["Local state"]
+    C --> C3["readonly selected = signal()"]
+    
+    A --> D["Convert"]
+    D --> D1["const sig = toSignal(obs$)"]
+    D --> D2["Observable → Signal"]
 ```
 
-### ⚠️ Input/Output Flow
+### Input/Output Flow:
 
-```
-Parent → Child: [input]="value()"
-Child → Parent: (output)="handler($event)"
+```mermaid
+graph LR
+    A["Parent"] -->|[input]| B["Child"]
+    B -->|@Input()| C["Receives value"]
+    D["Child"] -->|emit()| E["Parent"]
+    F["(output)"] -->|catches| G["Parent handler"]
 ```
 
 ---
 
 ## Be The Team Player 💪
 
-```
-WHEN YOU START A TASK:
-1. Read this guide
-2. Find similar code
-3. Copy the pattern
-4. Ask for review
+### When Starting:
 
-WHEN YOU FINISH:
-1. Test locally (ng serve)
-2. Run linter
-3. Commit clearly
-4. Push and create PR
-5. Done! ✅
+```mermaid
+graph LR
+    A["🚀 New Task"] --> B["📖 Read this guide"]
+    B --> C["🔍 Find similar code"]
+    C --> D["📋 Copy pattern"]
+    D --> E["✅ Ask for review"]
+```
+
+### When Finishing:
+
+```mermaid
+graph LR
+    A["🎯 Done coding"] --> B["🧪 Test locally"]
+    B --> C["✅ Run linter"]
+    C --> D["💬 Commit message"]
+    D --> E["📤 Push & PR"]
+    E --> F["✨ Team player"]
 ```
 
 ---
