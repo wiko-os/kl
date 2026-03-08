@@ -50,48 +50,67 @@ graph TD
 
 ## 2. Feature Workflow
 
-### User Clicks Feature in Sidebar:
+### How User Selects a Feature:
 
 ```mermaid
 sequenceDiagram
-    participant User
-    participant Sidebar
-    participant MenuStateService
-    participant MenuComponent
-    participant MainContent
+    actor User
+    participant Sidebar as Sidebar Component
+    participant Router as Angular Router
+    participant NavService as NavigationService
+    participant MenuComponent as Menu Component
+    participant Container as MailboxContainer
     
-    User->>Sidebar: Click "INBOX"
-    Sidebar->>MenuStateService: setActiveModule('inbox')
-    MenuStateService->>MenuComponent: activeModuleId.set('inbox')
-    MenuComponent->>MenuComponent: @switch changes
-    MenuComponent->>Sidebar: Show MailboxContainer
-    Sidebar->>MainContent: MailboxPageComponent renders
-    MainContent->>User: 👀 User sees mailboxes + content
+    User->>Sidebar: Click INBOX button
+    Sidebar->>Router: navigate(['/mailboxes'])
+    Router->>NavService: Route changed to /mailboxes
+    NavService->>NavService: activeModuleId.set('inbox')
+    NavService->>MenuComponent: activeModuleId signal updated
+    MenuComponent->>MenuComponent: @switch (activeModuleId())
+    MenuComponent->>Container: Show MailboxContainer
+    Container->>User: Display mailbox list in menu
 ```
 
-### Feature Selection Flow:
+### Step-by-Step Flow:
 
 ```mermaid
 graph LR
-    A["👆 User Click"] -->|Feature Button| B["🔔 MenuStateService"]
-    B -->|activeModuleId changes| C["🎛️ Menu Component"]
-    C -->|@switch case| D["📮 MailboxContainer<br/>OR<br/>📤 OutboxContainer<br/>OR<br/>🖥️ ConsoleContainer"]
-    D -->|renders| E["📋 Feature List<br/>Shows data"]
+    A["User clicks<br/>INBOX button"] --> B["Sidebar navigates<br/>to route"]
+    B --> C["Router updates URL<br/>to /mailboxes"]
+    C --> D["NavigationService<br/>updates activeModuleId"]
+    D --> E["Menu component<br/>detects change"]
+    E --> F["Menu switch evaluates<br/>@switch case"]
+    F --> G["Show correct<br/>Container"]
+    G --> H["User sees<br/>feature data"]
 ```
 
 ### Menu @switch Logic:
 
 ```mermaid
 graph TD
-    A["activeModuleId Signal"]
-    A -->|'inbox'| B["Show MailboxContainer"]
-    A -->|'outbox'| C["Show OutboxContainer"]
-    A -->|'console'| D["Show ConsoleContainer"]
-    A -->|default| E["Show MailboxContainer"]
+    Start["activeModuleId value"] 
+    Start -->|case 'inbox'| Inbox["Load<br/>MailboxContainer"]
+    Start -->|case 'outbox'| Outbox["Load<br/>OutboxContainer"]
+    Start -->|default| Default["Load<br/>MailboxContainer"]
     
-    B --> F["🎯 Menu displays<br/>mailbox items"]
-    C --> G["🎯 Menu displays<br/>outbox items"]
-    D --> H["🎯 Menu displays<br/>console sections"]
+    Inbox --> Result["Menu displays<br/>feature content"]
+    Outbox --> Result
+    Default --> Result
+```
+
+### What MenuStateService Controls:
+
+```mermaid
+graph TD
+    MenuState["MenuStateService<br/>Global State"]
+    MenuState --> IsOpen["isOpen Signal<br/>Menu visible or hidden"]
+    MenuState --> IsCollapsed["isCollapsed Signal<br/>Menu width small or normal"]
+    MenuState --> Width["width Computed<br/>Calculate size based<br/>on collapsed state"]
+    MenuState --> Toggle["toggleCollapsed()<br/>Collapse/Expand action"]
+
+    IsOpen -.->|affects| Display["Menu visible<br/>in UI"]
+    IsCollapsed -.->|affects| Size["Menu width<br/>120px or 280px"]
+    Width -.->|affects| Resizer["AppResizer<br/>drag position"]
 ```
 
 ---
