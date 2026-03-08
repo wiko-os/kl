@@ -7,12 +7,447 @@
 ## Table of Contents
 
 1. [App Layout](#1-app-layout)
-2. [Feature Folder Structure](#2-feature-folder-structure)
-3. [How Data Flows](#3-how-data-flows)
-4. [Task: Build New Feature](#4-task-build-new-feature)
-5. [Task: Fix a Bug](#5-task-fix-a-bug)
-6. [Task: Add New Field](#6-task-add-new-field)
+2. [Feature Workflow](#2-feature-workflow)
+3. [Data Workflow](#3-data-workflow)
+4. [Feature Folder Structure](#4-feature-folder-structure)
+5. [Build New Feature](#5-build-new-feature)
+6. [Fix a Bug](#6-fix-a-bug)
 7. [Common Commands](#7-common-commands)
+
+---
+
+## 1. App Layout
+
+### What You See On Screen:
+
+```
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ HEADER - Logo, Menu Toggle, User Profile   ┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+┃ SIDEBAR  ║ RESIZER ║ MAIN CONTENT AREA      ┃
+┃          ║   ███   ║                         ┃
+┃ Features ║         ║ Shows content from      ┃
+┃ Selector ║         ║ selected feature       ┃
+┃          ║         ║ (router-outlet)        ┃
+┃ 📧 INBOX ║         ║                         ┃
+┃ 📤 OUTBOX║ drag me ║ Display current page    ┃
+┃ 🖥️ CONSOLE (if exists)                      ┃
+┃          ║         ║                         ┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+┃ (Hidden: MENU - shows inside feature)       ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+```
+
+### Layout Structure:
+
+```
+AppShell (main layout) wraps everything
+├── Header (top bar)
+├── Sidebar (left - FEATURE BUTTONS)
+├── Resizer (drag bar between sidebar and main)
+├── Menu (inside feature - CHANGES per feature)
+└── Main content area (router-outlet)
+```
+
+### Key Files:
+
+```
+core/layout/
+├── app-shell/           ← Wraps everything
+├── header/              ← Top bar
+├── sidebar/             ← Feature selector buttons
+│   └── menu-state.service.ts ← Tracks: which feature is active
+├── menu/                ← Shows when INSIDE a feature
+│   └── menu.component.html  ← Renders MailboxContainer/OutboxContainer
+└── app-resizer/         ← Drag to resize
+```
+
+---
+
+## 2. Feature Workflow
+
+### User Selects a Feature:
+
+```
+User clicks "INBOX" in SIDEBAR
+        ▼
+MenuStateService.setActiveModule('inbox')
+        ▼
+Sidebar passes feature to Router
+        ▼
+URL changes to /mailboxes
+        ▼
+Router loads MailboxPageComponent
+        ▼
+MailboxPageComponent imports MailboxContainer
+        ▼
+Menu switches: shows MailboxContainer INSIDE menu area
+        ▼
+MailboxContainer displays mailbox list
+        ▼
+USER SEES: Sidebar + Menu (with mailbxoes) + Main content
+```
+
+### Visual Workflow:
+
+```
+STEP 1: Click feature in sidebar
+┌─────────────────────────────┐
+│ 📧 INBOX  ← Click here      │
+│ 📤 OUTBOX                   │
+│ 🖥️ CONSOLE                  │
+└─────────────────────────────┘
+
+STEP 2: Menu switches to show feature data
+┌──────────────────────────────────────┐
+│ Menu changes now shows:              │
+│                                      │
+│ [Inbox folder 1]                     │
+│ [Inbox folder 2]                     │
+│ [All Mail]                           │
+│                                      │
+│ (This is MailboxContainer inside)    │
+└──────────────────────────────────────┘
+
+STEP 3: Main content shows when you select item
+┌──────────────────────────────────────┐
+│ Content area:                        │
+│                                      │
+│ Subject: "Meeting today"             │
+│ From: "John Doe"                     │
+│ ...                                  │
+│                                      │
+│ (This is MailboxPageComponent)       │
+└──────────────────────────────────────┘
+```
+
+### MenuStateService Controls:
+
+```
+MenuStateService (global state)
+├── activeModuleId = signal('inbox')     ← Which feature selected
+├── isOpen = signal(true)                ← Menu open/closed
+├── isCollapsed = signal(false)          ← Menu collapsed/expanded
+└── width = computed(...)                ← Menu width
+
+When activeModuleId changes:
+  ✓ Menu component @switch changes
+  ✓ Shows MailboxContainer OR OutboxContainer OR ConsoleContainer
+```
+
+### Menu Component @switch:
+
+```
+menu.component.html:
+
+@switch (activeModuleId()) {
+  @case ('inbox') {
+    <app-mailbox-container></app-mailbox-container>
+  }
+  @case ('outbox') {
+    <app-outbox-container></app-outbox-container>
+  }
+  @case ('console') {
+    <app-console-container></app-console-container>
+  }
+  @default {
+    <app-mailbox-container></app-mailbox-container>  ← Default
+  }
+}
+```
+
+---
+
+## 3. Data Workflow
+
+### Complete User Action Flow:
+
+```
+1️⃣ USER CLICKS IN MENU
+   "Select Mailbox #123"
+        ▼
+2️⃣ COMPONENT EMITS EVENT
+   MailboxListComponent.selectMailbox.emit(123)
+        ▼
+3️⃣ CONTAINER CATCHES EVENT
+   MailboxContainer.onSelectMailbox(123)
+   └─ Sets: selectedId.set(123)
+   └─ Navigates to /mailboxes/123
+        ▼
+4️⃣ SERVICE LOADS DATA
+   MailboxService.getMailboxById(123)
+        ▼
+5️⃣ API LAYER MAKES REQUEST
+   GET /api/mailboxes/123
+        ▼
+6️⃣ HTTP INTERCEPTORS ADD HEADERS
+   + Authorization: "Bearer token..."
+   + Tenant-ID: "tenant-123"
+   + Accept-Language: "en"
+        ▼
+7️⃣ BACKEND RESPONDS
+   { id: 123, label: "Inbox", items: [...] }
+        ▼
+8️⃣ SERVICE TRANSFORMS DATA
+   map(response => response.data)
+   pipe(shareReplay(1))
+        ▼
+9️⃣ CONTAINER CONVERTS TO SIGNAL
+   readonly mailbox = toSignal(service$, { initialValue: null })
+        ▼
+🔟 TEMPLATE SHOWS DATA
+   {{ mailbox().label }} → "Inbox"
+        ▼
+👀 USER SEES RESULT
+```
+
+---
+
+## 4. Feature Folder Structure
+
+### Every Feature Looks Like This:
+
+```
+features/
+└── mailboxes/
+    ├── mailboxes.routes.ts         ← Routes
+    │
+    ├── api/
+    │   ├── mailbox-api.ts          ← Interface
+    │   ├── mailbox-api.token.ts    ← Token
+    │   └── mailbox-api.http.service.ts  ← HTTP
+    │
+    ├── services/
+    │   └── mailbox.service.ts      ← Business logic
+    │
+    ├── models/
+    │   └── mailbox.model.ts        ← Types
+    │
+    ├── pages/
+    │   └── mailbox-page/           ← Route entry point
+    │       ├── .ts
+    │       ├── .html
+    │       └── .scss
+    │
+    ├── containers/
+    │   └── mailbox/                ← Smart component (state)
+    │       ├── .ts
+    │       ├── .html
+    │       └── .scss
+    │
+    ├── components/
+    │   └── mailbox-list/           ← Dumb (display only)
+    │       ├── .ts
+    │       ├── .html
+    │       └── .scss
+    │
+    └── mocks/
+        └── mailboxes.mock.ts       ← Test data
+```
+
+### Component Types:
+
+```
+PAGE
+├─ Entry point (route loads this)
+├─ Contains a Container
+└─ Usually simple wrapper
+
+CONTAINER (⭐ The important one)
+├─ Manages state (Signals)
+├─ Calls services
+├─ Passes data to components
+├─ Handles user actions
+└─ Converts Observable → Signal
+
+COMPONENT
+├─ Just displays stuff
+├─ Takes @Input()
+├─ Emits @Output()
+├─ No business logic
+└─ No service calls
+```
+
+---
+
+## 5. Build New Feature
+
+### 11 Steps to Add "Console" Feature:
+
+```
+1️⃣ Create folder structure
+   mkdir -p src/app/features/console/{api,services,models,mocks,pages,containers,components/console-list}
+
+2️⃣ Define data model (console.model.ts)
+   interface ConsoleSection { id: string; label: string; }
+
+3️⃣ Create API interface (console-api.ts)
+   interface ConsoleApi { getSections(): Observable<ConsoleSection[]>; }
+
+4️⃣ Create API token (console-api.token.ts)
+   export const CONSOLE_API = new InjectionToken<ConsoleApi>('CONSOLE_API');
+
+5️⃣ Implement HTTP service (console-api.http.service.ts)
+   @Injectable() export class ConsoleApiHttpService implements ConsoleApi { ... }
+
+6️⃣ Create feature service (console.service.ts)
+   @Injectable() export class ConsoleService { ... }
+
+7️⃣ Create container (console.container.ts)
+   ✓ Manage state
+   ✓ Convert Observable to Signal
+   ✓ Handle interactions
+
+8️⃣ Create list component (console-list.component.ts)
+   ✓ Display data
+   ✓ Emit events
+
+9️⃣ Create page (console-page.component.ts)
+   ✓ Wrapper for route
+
+10️⃣ Register routes (console.routes.ts + app.routes.ts)
+    { path: 'console', children: CONSOLE_ROUTES }
+
+11️⃣ Register in DI (app.config.ts)
+    { provide: CONSOLE_API, useClass: ConsoleApiHttpService }
+```
+
+### Result:
+```
+✅ Feature works
+✅ Accessible at /console
+✅ Appears in sidebar
+✅ Menu shows console data when selected
+```
+
+---
+
+## 6. Fix a Bug
+
+### Troubleshooting Guide:
+
+```
+❓ List not showing?
+   └─ Check: component HTML renders list → service returns data → API working
+
+❓ Data not loading?
+   └─ Check Network tab → check service Observable → check container converts to Signal
+
+❓ Button not working?
+   └─ Check: component emits → container catches → handler exists
+
+❓ Styles not applied?
+   └─ Check selector matches → check CSS specificity → check ViewEncapsulation
+
+❓ Route not working?
+   └─ Check routes registered → check URL correct → check component imported
+```
+
+### Quick Fix Steps:
+
+```
+1. Find the file
+   - Display issue? → Component .html/.scss
+   - Data issue? → Service or API
+   - Logic issue? → Container .ts
+
+2. Search for clues
+   grep -r "what-you're-looking-for" src/app/features/
+
+3. Test locally
+   ng serve
+   
+4. Check browser console
+   F12 → Console tab for errors
+   
+5. Check Network tab
+   F12 → Network → Make request → See response
+
+6. Fix and commit
+   git add .
+   git commit -m "fix: describe what you fixed"
+```
+
+---
+
+## 7. Common Commands
+
+### Serve & Build:
+```bash
+ng serve              # Local dev
+ng build --prod       # Production
+```
+
+### Testing:
+```bash
+npx eslint src/**/*.{ts,html}        # Run linter
+npx eslint ... -f html -o report.html # Generate report
+```
+
+### Git Workflow:
+```bash
+git checkout -b feature/my-feature   # Create branch
+git add .                            # Stage changes
+git commit -m "feat: description"    # Commit
+git push origin feature/my-feature   # Push
+# Create PR on GitHub
+```
+
+### Generate Files:
+```bash
+ng g c features/mailboxes/components/my-component
+ng g s features/mailboxes/services/my-service
+```
+
+---
+
+## Quick Tips
+
+### ⚠️ Always Call Signals with ()
+
+```
+❌ [items]="mailboxes"
+✅ [items]="mailboxes()"
+```
+
+### ⚠️ Injectable Pattern
+
+```
+@Injectable({ providedIn: 'root' })  ← Singleton
+export class MyService { }
+```
+
+### ⚠️ Input/Output Flow
+
+```
+Parent → Child: [input]="value()"
+Child → Parent: (output)="handler($event)"
+```
+
+---
+
+## Be The Team Player 💪
+
+```
+WHEN YOU START A TASK:
+1. Read this guide
+2. Find similar code
+3. Copy the pattern
+4. Ask for review
+
+WHEN YOU FINISH:
+1. Test locally (ng serve)
+2. Run linter
+3. Commit clearly
+4. Push and create PR
+5. Done! ✅
+```
+
+---
+
+**Last Updated:** 2026-03-08  
+**Remember:** Sidebar = Feature selector. Menu = Feature data. Always ask if stuck!
+
 
 ---
 
