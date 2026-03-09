@@ -33,9 +33,11 @@ DB-->>Service: mailboxId généré
 
 Service-->>Controller: MailboxResponse(id)
 
-Controller-->>Frontend: HTTP 201 Created
+Controller-->>Frontend: HTTP 201 Created + mailboxId
 
 
+
+alt Si création OK
 
 Frontend->>Controller: POST /api/mailboxes/{id}/owners\n(AssignOwnersRequest)
 
@@ -49,9 +51,23 @@ Service-->>Controller: MailboxResponse(updated)
 
 Controller-->>Frontend: HTTP 200 OK
 
+else Si création échoue
+
+Controller-->>Frontend: HTTP 400 / Erreur création
+
 end
 
 
 
-Frontend-->>User: Import terminé
+alt Si assignation owners échoue
+
+Controller-->>Frontend: HTTP 400 / Erreur assignation
+
+end
+
+end
+
+
+
+Frontend-->>User: Import terminé / erreurs logguées
 ```
