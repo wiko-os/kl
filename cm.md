@@ -3,7 +3,7 @@ sequenceDiagram
 
 actor User
 
-participant UI as Console Technique / CSV Importer
+participant Frontend as Console Technique / CSV Importer
 
 participant Controller as MailboxController
 
@@ -11,85 +11,47 @@ participant Service as MailboxService
 
 participant DB as Database
 
-participant UserService as User Lookup
+
+
+User->>Frontend: Upload CSV (bannettes + owners)
 
 
 
-User->>UI: Upload fichier CSV (bannettes + owners)
-
-
-
-UI->>UI: Parser le CSV\nLire chaque ligne
+Frontend->>Frontend: Parser le CSV\nSéparer mailbox info et owners
 
 
 
 loop Pour chaque ligne du CSV
 
-
-
-Note over UI: Exemple ligne\nlabel=Factures\nlegalEntity=A\norgEntity=Finance\nowners=user1,user2
-
-
-
-UI->>Controller: POST /api/mailboxes/governed\n(CreateGovernedMailboxRequest)
-
-
+Frontend->>Controller: POST /api/mailboxes/governed\n(CreateGovernedMailboxRequest)
 
 Controller->>Service: createGovernedMailbox(request)
 
+Service->>DB: INSERT INTO mailboxes
 
-
-Service->>DB: INSERT mailbox
-
-
-
-DB-->>Service: mailboxId
-
-
+DB-->>Service: mailboxId généré
 
 Service-->>Controller: MailboxResponse(id)
 
-
-
-Controller-->>UI: HTTP 201 Created\nMailboxResponse(id)
-
-
-
-UI->>UserService: Resolve owner usernames -> userIds
+Controller-->>Frontend: HTTP 201 Created
 
 
 
-UserService-->>UI: [12, 33]
+Frontend->>Controller: POST /api/mailboxes/{id}/owners\n(AssignOwnersRequest)
 
+Controller->>Service: assignOwners(mailboxId, request)
 
-
-UI->>Controller: POST /api/mailboxes/{id}/owners\nAssignOwnersRequest(ownerIds)
-
-
-
-Controller->>Service: assignOwners(id, request)
-
-
-
-Service->>DB: INSERT mailbox_owner relation
-
-
+Service->>DB: INSERT INTO mailbox_owners
 
 DB-->>Service: OK
 
-
-
 Service-->>Controller: MailboxResponse(updated)
 
-
-
-Controller-->>UI: HTTP 200 OK
-
-
+Controller-->>Frontend: HTTP 200 OK
 
 end
 
 
 
-UI-->>User: Import terminé
+Frontend-->>User: Import terminé
 ```
