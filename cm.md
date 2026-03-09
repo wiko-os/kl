@@ -1,43 +1,95 @@
 ```mermaid
 sequenceDiagram
 
-participant User
+actor User
 
-participant CSV_Importer
+participant UI as Console Technique / CSV Importer
 
-participant API
+participant Controller as MailboxController
 
-participant DB
+participant Service as MailboxService
+
+participant DB as Database
+
+participant UserService as User Lookup
 
 
 
-User->>CSV_Importer: Upload CSV (bannettes + owners)
+User->>UI: Upload fichier CSV (bannettes + owners)
+
+
+
+UI->>UI: Parser le CSV\nLire chaque ligne
 
 
 
 loop Pour chaque ligne du CSV
 
-CSV_Importer->>API: POST /api/mailboxes/governed
 
-API->>DB: Create mailbox
 
-DB-->>API: mailboxId
-
-API-->>CSV_Importer: MailboxResponse(id)
+Note over UI: Exemple ligne\nlabel=Factures\nlegalEntity=A\norgEntity=Finance\nowners=user1,user2
 
 
 
-CSV_Importer->>API: POST /api/mailboxes/{id}/owners
+UI->>Controller: POST /api/mailboxes/governed\n(CreateGovernedMailboxRequest)
 
-API->>DB: Assign owners to mailbox
 
-DB-->>API: Updated mailbox
 
-API-->>CSV_Importer: MailboxResponse
+Controller->>Service: createGovernedMailbox(request)
+
+
+
+Service->>DB: INSERT mailbox
+
+
+
+DB-->>Service: mailboxId
+
+
+
+Service-->>Controller: MailboxResponse(id)
+
+
+
+Controller-->>UI: HTTP 201 Created\nMailboxResponse(id)
+
+
+
+UI->>UserService: Resolve owner usernames -> userIds
+
+
+
+UserService-->>UI: [12, 33]
+
+
+
+UI->>Controller: POST /api/mailboxes/{id}/owners\nAssignOwnersRequest(ownerIds)
+
+
+
+Controller->>Service: assignOwners(id, request)
+
+
+
+Service->>DB: INSERT mailbox_owner relation
+
+
+
+DB-->>Service: OK
+
+
+
+Service-->>Controller: MailboxResponse(updated)
+
+
+
+Controller-->>UI: HTTP 200 OK
+
+
 
 end
 
 
 
-CSV_Importer-->>User: Import terminé
+UI-->>User: Import terminé
 ```
